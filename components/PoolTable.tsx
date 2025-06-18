@@ -19,8 +19,8 @@ const PoolTable: React.FC<PoolTableProps> = ({
   height,
   cueBallPosition,
 }) => {
-  const RAIL_WIDTH = 15; // Reduced from 20
-  const BALL_RADIUS = 6; // Slightly smaller ball
+  const RAIL_WIDTH = 20;
+  const BALL_RADIUS = 8;
 
   // Total SVG dimensions including rails
   const totalWidth = width + RAIL_WIDTH * 2;
@@ -74,23 +74,28 @@ const PoolTable: React.FC<PoolTableProps> = ({
           strokeWidth={2}
         />
 
-        {/* Corner Pockets - smaller */}
-        <Circle cx={RAIL_WIDTH} cy={RAIL_WIDTH} r={8} fill="#000" />
-        <Circle cx={width + RAIL_WIDTH} cy={RAIL_WIDTH} r={8} fill="#000" />
-        <Circle cx={RAIL_WIDTH} cy={height + RAIL_WIDTH} r={8} fill="#000" />
+        {/* Corner Pockets */}
+        <Circle cx={RAIL_WIDTH} cy={RAIL_WIDTH} r={12} fill="#000" />
+        <Circle cx={width + RAIL_WIDTH} cy={RAIL_WIDTH} r={12} fill="#000" />
+        <Circle cx={RAIL_WIDTH} cy={height + RAIL_WIDTH} r={12} fill="#000" />
         <Circle
           cx={width + RAIL_WIDTH}
           cy={height + RAIL_WIDTH}
-          r={8}
+          r={12}
           fill="#000"
         />
 
-        {/* Side Pockets - smaller */}
-        <Circle cx={width / 2 + RAIL_WIDTH} cy={RAIL_WIDTH} r={6} fill="#000" />
+        {/* Side Pockets */}
+        <Circle
+          cx={width / 2 + RAIL_WIDTH}
+          cy={RAIL_WIDTH}
+          r={10}
+          fill="#000"
+        />
         <Circle
           cx={width / 2 + RAIL_WIDTH}
           cy={height + RAIL_WIDTH}
-          r={6}
+          r={10}
           fill="#000"
         />
 

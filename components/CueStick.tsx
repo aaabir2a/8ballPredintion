@@ -34,13 +34,13 @@ const CueStick: React.FC<CueStickProps> = ({
   const cueForce = useSharedValue(0);
 
   // Configuration
-  const RAIL_WIDTH = 15; // Match the table rail width
-  const CUE_LENGTH = 120; // Shorter cue stick
-  const CUE_WIDTH = 6; // Thinner cue
-  const MAX_PULL_DISTANCE = 80; // Reduced max pull
-  const MIN_PULL_DISTANCE = 15; // Reduced min pull
-  const BALL_RADIUS = 6; // Match ball size
-  const CUE_OFFSET = BALL_RADIUS + 3; // Smaller offset
+  const RAIL_WIDTH = 20;
+  const CUE_LENGTH = 180;
+  const CUE_WIDTH = 8;
+  const MAX_PULL_DISTANCE = 120;
+  const MIN_PULL_DISTANCE = 20;
+  const BALL_RADIUS = 8;
+  const CUE_OFFSET = BALL_RADIUS + 5; // Distance from ball to cue tip
 
   const calculateCueMetrics = (touchX: number, touchY: number) => {
     const ballCenterX = cueBallPosition.x + RAIL_WIDTH;

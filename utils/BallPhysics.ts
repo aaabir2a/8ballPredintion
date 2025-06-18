@@ -22,18 +22,19 @@ interface PhysicsConfig {
   velocityScale: number;
 }
 
-// Default physics configuration
+// Updated physics for smaller table
 const DEFAULT_CONFIG: PhysicsConfig = {
-  ballRadius: 8,
-  friction: 0.985, // Energy loss per frame (0.985 = 1.5% loss)
-  minVelocity: 0.3, // Minimum velocity before ball stops
-  timeStep: 0.08, // Time step for simulation
-  maxPoints: 300, // Maximum trajectory points
-  velocityScale: 0.15, // Scale force to velocity
+  ballRadius: 4, // Much smaller ball
+  friction: 0.985, // Energy loss per frame (1.5% per frame)
+  minVelocity: 0.3, // Ball stops when velocity drops below this
+  timeStep: 0.08, // Time between each calculated point
+  maxPoints: 300, // Maximum number of points to calculate
+  velocityScale: 0.15, // Convert force percentage to velocity
 };
 
 /**
  * Main function to get predicted ball path with bounces
+ * Returns an array of {x, y} points showing where the ball will travel
  */
 export function getPredictedPath({
   x,
@@ -44,7 +45,6 @@ export function getPredictedPath({
   tableHeight,
   maxBounces = 10,
 }: PredictedPathParams): Point[] {
-  // Validate inputs
   if (force <= 0 || !isFinite(angleInDegrees)) {
     return [];
   }
@@ -57,7 +57,6 @@ export function getPredictedPath({
   let vx = Math.cos(angleInRadians) * force * config.velocityScale;
   let vy = Math.sin(angleInRadians) * force * config.velocityScale;
 
-  // Current position
   let currentX = x;
   let currentY = y;
   let bounces = 0;
@@ -65,13 +64,13 @@ export function getPredictedPath({
   // Add starting position
   path.push({ x: currentX, y: currentY });
 
-  // Simulate ball movement
+  // Simulate ball movement frame by frame
   while (bounces < maxBounces && path.length < config.maxPoints) {
-    // Calculate next position
+    // Calculate where ball will be in next time step
     const nextX = currentX + vx * config.timeStep;
     const nextY = currentY + vy * config.timeStep;
 
-    // Check for wall collisions and handle bounces
+    // Check if ball hits any walls
     const collision = checkWallCollisions(
       { x: currentX, y: currentY },
       { x: nextX, y: nextY },
@@ -82,37 +81,35 @@ export function getPredictedPath({
     );
 
     if (collision.hasCollision) {
-      // Update position to collision point
+      // Ball hit a wall - update position and reflect velocity
       currentX = collision.collisionPoint.x;
       currentY = collision.collisionPoint.y;
-
-      // Update velocity with reflection
       vx = collision.newVelocity.vx;
       vy = collision.newVelocity.vy;
 
-      // Apply energy loss from bounce
+      // Lose some energy from the bounce
       const bounceEnergyLoss = 0.92; // Lose 8% energy on bounce
       vx *= bounceEnergyLoss;
       vy *= bounceEnergyLoss;
 
       bounces++;
     } else {
-      // No collision, update position normally
+      // No collision, ball continues moving
       currentX = nextX;
       currentY = nextY;
     }
 
-    // Apply friction
+    // Apply friction (ball slows down over time)
     vx *= config.friction;
     vy *= config.friction;
 
-    // Check if ball has stopped
+    // Check if ball has stopped moving
     const velocity = Math.sqrt(vx * vx + vy * vy);
     if (velocity < config.minVelocity) {
-      break;
+      break; // Ball stopped, end simulation
     }
 
-    // Add point to path
+    // Add this position to the path
     path.push({ x: currentX, y: currentY });
   }
 
@@ -190,44 +187,35 @@ export function calculateDistance(point1: Point, point2: Point): number {
 }
 
 /**
- * Normalize angle to 0-360 degrees
+ * Detect bounce points in trajectory (where direction changes significantly)
+ * These are the red dots you see on the prediction line
  */
-export function normalizeAngle(angleInDegrees: number): number {
-  let normalized = angleInDegrees % 360;
-  if (normalized < 0) {
-    normalized += 360;
+export function getBouncePoints(path: Point[], angleThreshold = 30): Point[] {
+  if (path.length < 3) return [];
+
+  const bouncePoints: Point[] = [];
+
+  for (let i = 1; i < path.length - 1; i++) {
+    const prevPoint = path[i - 1];
+    const currentPoint = path[i];
+    const nextPoint = path[i + 1];
+
+    // Calculate angles before and after this point
+    const angle1 = calculateAngleBetweenPoints(prevPoint, currentPoint);
+    const angle2 = calculateAngleBetweenPoints(currentPoint, nextPoint);
+
+    // Check if direction changed significantly (indicates a bounce)
+    let angleDiff = Math.abs(angle1 - angle2);
+    if (angleDiff > 180) {
+      angleDiff = 360 - angleDiff;
+    }
+
+    if (angleDiff > angleThreshold) {
+      bouncePoints.push(currentPoint);
+    }
   }
-  return normalized;
-}
 
-/**
- * Convert degrees to radians
- */
-export function degreesToRadians(degrees: number): number {
-  return (degrees * Math.PI) / 180;
-}
-
-/**
- * Convert radians to degrees
- */
-export function radiansToDegrees(radians: number): number {
-  return (radians * 180) / Math.PI;
-}
-
-/**
- * Calculate reflection angle when hitting a wall
- */
-export function calculateReflectionAngle(
-  incidentAngle: number,
-  wallType: "horizontal" | "vertical"
-): number {
-  if (wallType === "horizontal") {
-    // Reflect across horizontal wall (top/bottom)
-    return -incidentAngle;
-  } else {
-    // Reflect across vertical wall (left/right)
-    return 180 - incidentAngle;
-  }
+  return bouncePoints;
 }
 
 /**
@@ -254,36 +242,35 @@ export function getSmoothedTrajectory(
   return smoothedPath;
 }
 
-/**
- * Detect bounce points in trajectory (where direction changes significantly)
- */
-export function getBouncePoints(path: Point[], angleThreshold = 30): Point[] {
-  if (path.length < 3) return [];
-
-  const bouncePoints: Point[] = [];
-
-  for (let i = 1; i < path.length - 1; i++) {
-    const prevPoint = path[i - 1];
-    const currentPoint = path[i];
-    const nextPoint = path[i + 1];
-
-    const angle1 = calculateAngleBetweenPoints(prevPoint, currentPoint);
-    const angle2 = calculateAngleBetweenPoints(currentPoint, nextPoint);
-
-    let angleDiff = Math.abs(angle1 - angle2);
-    if (angleDiff > 180) {
-      angleDiff = 360 - angleDiff;
-    }
-
-    if (angleDiff > angleThreshold) {
-      bouncePoints.push(currentPoint);
-    }
+// Utility functions
+export function normalizeAngle(angleInDegrees: number): number {
+  let normalized = angleInDegrees % 360;
+  if (normalized < 0) {
+    normalized += 360;
   }
-
-  return bouncePoints;
+  return normalized;
 }
 
-// Legacy function for backward compatibility
+export function degreesToRadians(degrees: number): number {
+  return (degrees * Math.PI) / 180;
+}
+
+export function radiansToDegrees(radians: number): number {
+  return (radians * 180) / Math.PI;
+}
+
+export function calculateReflectionAngle(
+  incidentAngle: number,
+  wallType: "horizontal" | "vertical"
+): number {
+  if (wallType === "horizontal") {
+    return -incidentAngle;
+  } else {
+    return 180 - incidentAngle;
+  }
+}
+
+// Legacy functions for backward compatibility
 export const calculateTrajectory = (
   startPosition: Point,
   angle: number,
@@ -300,7 +287,7 @@ export const calculateTrajectory = (
     tableHeight,
   });
 };
-// Helper function to calculate angle between two points
+
 export const calculateAngle = (
   point1: { x: number; y: number },
   point2: { x: number; y: number }
@@ -308,7 +295,6 @@ export const calculateAngle = (
   return Math.atan2(point2.y - point1.y, point2.x - point1.x);
 };
 
-// Helper function to calculate distance between two points
 export const calculateDistanceOld = (
   point1: { x: number; y: number },
   point2: { x: number; y: number }
@@ -318,7 +304,6 @@ export const calculateDistanceOld = (
   return Math.sqrt(dx * dx + dy * dy);
 };
 
-// Helper function to normalize angle to 0-2π range
 export const normalizeAngleOld = (angle: number): number => {
   while (angle < 0) angle += 2 * Math.PI;
   while (angle >= 2 * Math.PI) angle -= 2 * Math.PI;

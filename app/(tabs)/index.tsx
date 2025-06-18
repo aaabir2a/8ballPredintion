@@ -6,47 +6,31 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import CueStick from "../../components/CueStick";
 import PoolTable from "../../components/PoolTable";
 import PredictionLine from "../../components/PredictionLine";
-import { getPredictedPath } from "../../utils/BallPhysics";
+import { getBouncePoints, getPredictedPath } from "../../utils/BallPhysics";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
-// Much more conservative calculations for table sizing
-const MARGIN = 20; // Reduced margin
-const RAIL_WIDTH = 15; // Reduced rail width
-const SAFE_AREA_TOP = 100; // Space for status bar and navigation
-const SAFE_AREA_BOTTOM = 100; // Space for tab bar
-const DEBUG_HEIGHT = 80; // Space for debug info
+// Calculate table dimensions with proper margins and aspect ratio
+const MARGIN = 40; // Margin from screen edges
+const RAIL_WIDTH = 20; // Rail width that will be added to table dimensions
 
-// Calculate truly available space
-const availableWidth = screenWidth - MARGIN * 2;
-const availableHeight =
-  screenHeight - SAFE_AREA_TOP - SAFE_AREA_BOTTOM - DEBUG_HEIGHT;
+// Standard pool table ratio is 2:1 (length:width)
+const availableWidth = screenWidth - MARGIN * 2 - RAIL_WIDTH * 2;
+const availableHeight = screenHeight - MARGIN * 4 - RAIL_WIDTH * 2 - 100; // Extra space for status bar and tabs
 
-// Start with smaller base dimensions
-const maxTableWidth = Math.min(availableWidth - RAIL_WIDTH * 2, 350);
-const maxTableHeight = Math.min(availableHeight - RAIL_WIDTH * 2, 200);
+// Calculate table size maintaining 2:1 ratio
+let TABLE_WIDTH = availableWidth;
+let TABLE_HEIGHT = availableWidth / 2;
 
-// Use 2:1 ratio but ensure it fits
-let TABLE_WIDTH = maxTableWidth;
-let TABLE_HEIGHT = maxTableWidth / 2;
-
-// If height is too big, scale down
-if (TABLE_HEIGHT > maxTableHeight) {
-  TABLE_HEIGHT = maxTableHeight;
+// If height is too big, scale down based on height
+if (TABLE_HEIGHT > availableHeight) {
+  TABLE_HEIGHT = availableHeight;
   TABLE_WIDTH = TABLE_HEIGHT * 2;
 }
 
-// Final safety check - ensure minimum but reasonable size
-TABLE_WIDTH = Math.max(Math.min(TABLE_WIDTH, 320), 280);
-TABLE_HEIGHT = Math.max(Math.min(TABLE_HEIGHT, 160), 140);
-
-console.log(`Screen: ${screenWidth}x${screenHeight}`);
-console.log(`Table: ${TABLE_WIDTH}x${TABLE_HEIGHT}`);
-console.log(
-  `Total with rails: ${TABLE_WIDTH + RAIL_WIDTH * 2}x${
-    TABLE_HEIGHT + RAIL_WIDTH * 2
-  }`
-);
+// Ensure minimum playable size
+TABLE_WIDTH = Math.max(TABLE_WIDTH, 300);
+TABLE_HEIGHT = Math.max(TABLE_HEIGHT, 150);
 
 const CUE_BALL_POSITION = { x: TABLE_WIDTH * 0.25, y: TABLE_HEIGHT * 0.5 };
 
@@ -55,7 +39,7 @@ export default function HomeScreen() {
   const [predictionPath, setPredictionPath] = useState<
     { x: number; y: number }[]
   >([]);
-
+  const [bounceCount, setBounceCount] = useState(0);
   const handleShotChange = ({
     force,
     angle,
@@ -66,7 +50,6 @@ export default function HomeScreen() {
     setShotData({ force, angle });
 
     if (force > 5) {
-      // Use the new BallPhysics utility
       const trajectory = getPredictedPath({
         x: CUE_BALL_POSITION.x,
         y: CUE_BALL_POSITION.y,
@@ -77,8 +60,13 @@ export default function HomeScreen() {
         maxBounces: 8,
       });
       setPredictionPath(trajectory);
+
+      // Calculate bounce points
+      const bounces = getBouncePoints(trajectory);
+      setBounceCount(bounces.length);
     } else {
       setPredictionPath([]);
+      setBounceCount(0);
     }
   };
 
@@ -103,15 +91,21 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Debug info */}
+      {/* Enhanced debug info */}
       <View style={styles.debugInfo}>
         <Text style={styles.debugText}>
-          Force: {shotData.force.toFixed(1)}% | Angle:{" "}
-          {shotData.angle.toFixed(1)}°
+          Force: {shotData.force.toFixed(0)}% | Angle:{" "}
+          {shotData.angle.toFixed(0)}°
         </Text>
         <Text style={styles.debugText}>
-          Path Points: {predictionPath.length}
+          Path Points: {predictionPath.length} | Bounces: {bounceCount}
         </Text>
+        {predictionPath.length > 0 && (
+          <Text style={styles.debugTextSmall}>
+            Ball will travel through {predictionPath.length} calculated
+            positions
+          </Text>
+        )}
       </View>
     </GestureHandlerRootView>
   );
@@ -123,9 +117,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#1a1a1a",
     justifyContent: "center",
     alignItems: "center",
+    paddingTop: 50, // Account for status bar
+    paddingBottom: 100, // Account for tab bar
   },
   gameArea: {
     position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+    width: TABLE_WIDTH + 40, // Add some padding
+    height: TABLE_HEIGHT + 40,
   },
   debugInfo: {
     position: "absolute",
@@ -141,5 +141,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
     textAlign: "center",
+  },
+  debugTextSmall: {
+    color: "#FFA500",
+    fontSize: 10,
+    textAlign: "center",
+    marginTop: 2,
   },
 });

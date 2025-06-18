@@ -13,7 +13,7 @@ const PredictionLine: React.FC<PredictionLineProps> = ({
   tableWidth,
   tableHeight,
 }) => {
-  const RAIL_WIDTH = 15; // Match other components
+  const RAIL_WIDTH = 20;
 
   if (!path || path.length < 2) {
     return null;
